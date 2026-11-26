@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Iqama Data Entry Dashboard</title>
+  <title>Iqama Data Entry Dashboard - Gemini AI</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
     body { background: #f1f5f9; color: #1e293b; min-height: 100vh; display: flex; flex-direction: column; }
@@ -61,7 +60,7 @@
 
   <header>
     <div>
-      <h1>🪪 Iqama Data Entry Dashboard</h1>
+      <h1>🪪 Iqama Data Entry Dashboard (Gemini AI)</h1>
       <p>Created By:- 8306 - ABUBAKAR MD HUSSAIN</p>
     </div>
     <div class="btn-group">
@@ -104,7 +103,7 @@
       <div class="card" style="max-width:850px; margin:0 auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h3 id="form-heading" style="font-size:16px; margin:0;">Add New Iqama Entry</h3>
-          <span id="ocr-status" style="font-size:12px; font-weight:700; color:#1d4ed8;">Ready (Offline Smart Scanner)</span>
+          <span id="ocr-status" style="font-size:12px; font-weight:700; color:#1d4ed8;">Ready (Gemini AI Scanner)</span>
         </div>
 
         <div class="photo-box">
@@ -249,6 +248,9 @@
   </footer>
 
   <script>
+    // ⚠️ YAHAN APNI NAYI GEMINI API KEY PASTE KAREIN (Single quotes ke andar)
+    const GEMINI_API_KEY = 'PASTE_YOUR_NEW_GEMINI_KEY_HERE'; 
+
     const STORAGE_KEY = 'iqama_dashboard_entries_v3';
     const DEFAULT_FACE_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='90'%3E%3Crect width='70' height='90' fill='%23ffffff' stroke='%23cbd5e1'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%2364748b'%3E35x45mm%3C/text%3E%3C/svg%3E";
 
@@ -318,7 +320,6 @@
     function updateKPIs() {
       const nats = new Set();
       let expired = 0, exp30 = 0, exp90 = 0, valid = 0;
-
       entries.forEach(e => {
         if (e.nationality) nats.add(e.nationality.trim().toLowerCase());
         const info = getExpiryInfo(e.expiry);
@@ -327,7 +328,6 @@
         else if (info.code === '90') exp90++;
         else valid++;
       });
-
       document.getElementById('kpi-total').textContent = entries.length;
       document.getElementById('kpi-nat').textContent = nats.size;
       document.getElementById('kpi-expired').textContent = expired;
@@ -391,7 +391,7 @@
       makeChart('chart-room', 'bar', room.labels, room.values, ['#1b365d']);
     }
 
-    function compressImageToJpeg(dataUrl, maxWidth = 1000, quality = 0.85) {
+    function compressImageToJpeg(dataUrl, maxWidth = 800, quality = 0.8) {
       return new Promise(resolve => {
         const img = new Image();
         img.onload = () => {
@@ -401,23 +401,6 @@
           canvas.height = Math.round(img.height * scale);
           canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.src = dataUrl;
-      });
-    }
-
-    function createHighContrastOcrImage(dataUrl) {
-      return new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => {
-          const scale = Math.max(1, 1600 / img.width);
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext('2d');
-          ctx.filter = 'grayscale(100%) contrast(190%) brightness(110%)';
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/png'));
         };
         img.src = dataUrl;
       });
@@ -519,427 +502,4 @@
         empno: document.getElementById('f-empno').value.trim() || 'Rental-Tamimi',
         job: document.getElementById('f-job').value.trim(),
         mobile: mobileRaw,
-        checkin: document.getElementById('f-checkin').value.trim() || getTodayDDMMYYYY(),
-        checkout: document.getElementById('f-checkout').value.trim(),
-        room: document.getElementById('f-room').value.trim() || 'A',
-        requestedBy: document.getElementById('f-requested').value.trim(),
-        category: document.getElementById('f-category').value,
-        remarks: document.getElementById('f-remarks').value.trim(),
-        photo: currentFaceDataUrl || '',
-        iqamaPhoto: currentIqamaDataUrl || ''
-      };
-
-      if (id) {
-        const idx = entries.findIndex(item => item.id === id);
-        if (idx !== -1) entries[idx] = record;
-      } else {
-        entries.push(record);
-      }
-
-      refreshAll();
-      resetForm();
-      switchTab('list');
-    }
-
-    function resetForm() {
-      document.getElementById('entry-form').reset();
-      document.getElementById('edit-id').value = '';
-      document.getElementById('f-checkin').value = getTodayDDMMYYYY();
-      document.getElementById('f-room').value = 'A';
-      document.getElementById('f-category').value = 'Worker';
-      document.getElementById('form-heading').textContent = 'Add New Iqama Entry';
-      document.getElementById('save-btn').textContent = '💾 Save Entry';
-      document.getElementById('ocr-status').textContent = 'Ready (Offline Smart Scanner)';
-      document.getElementById('preview-iqama').classList.add('hidden');
-      document.getElementById('preview-face').src = DEFAULT_FACE_SVG;
-      currentFaceDataUrl = '';
-      currentIqamaDataUrl = '';
-      rawEmployeeImg = null;
-    }
-
-    function editEntry(id) {
-      const item = entries.find(e => e.id === id);
-      if (!item) return;
-      switchTab('new');
-      document.getElementById('edit-id').value = item.id;
-      document.getElementById('f-name').value = item.name || '';
-      document.getElementById('f-iqama').value = item.iqama || '';
-      document.getElementById('f-nationality').value = item.nationality || '';
-      document.getElementById('f-expiry').value = item.expiry || '';
-      document.getElementById('f-empno').value = item.empno || '';
-      document.getElementById('f-job').value = item.job || '';
-      document.getElementById('f-mobile').value = item.mobile || '';
-      document.getElementById('f-checkin').value = item.checkin || '';
-      document.getElementById('f-checkout').value = item.checkout || '';
-      document.getElementById('f-room').value = item.room || 'A';
-      document.getElementById('f-requested').value = item.requestedBy || '';
-      document.getElementById('f-category').value = item.category || 'Worker';
-      document.getElementById('f-remarks').value = item.remarks || '';
-      currentFaceDataUrl = item.photo || '';
-      currentIqamaDataUrl = item.iqamaPhoto || '';
-      document.getElementById('preview-face').src = item.photo || DEFAULT_FACE_SVG;
-      const iqamaPrev = document.getElementById('preview-iqama');
-      if (item.iqamaPhoto) {
-        iqamaPrev.src = item.iqamaPhoto;
-        iqamaPrev.classList.remove('hidden');
-      } else {
-        iqamaPrev.classList.add('hidden');
-      }
-      document.getElementById('form-heading').textContent = `Edit Entry: ${item.name}`;
-      document.getElementById('save-btn').textContent = '✅ Update Entry';
-    }
-
-    function deleteEntry(id) {
-      if (!confirm('Delete this entry?')) return;
-      entries = entries.filter(e => e.id !== id);
-      refreshAll();
-    }
-
-    function clearAllData() {
-      if (!confirm('Are you sure you want to delete ALL records?')) return;
-      entries = [];
-      refreshAll();
-    }
-
-    function renderTable() {
-      const q = (document.getElementById('search-input')?.value || '').toLowerCase();
-      const statusFilter = document.getElementById('filter-status')?.value || 'all';
-      const tbody = document.getElementById('master-tbody');
-      tbody.innerHTML = '';
-
-      const filtered = entries.filter(e => {
-        const info = getExpiryInfo(e.expiry);
-        if (statusFilter !== 'all' && info.code !== statusFilter) return false;
-        if (!q) return true;
-        return [e.name, e.iqama, e.empno, e.mobile, e.nationality, e.job, e.room, e.requestedBy]
-          .some(v => (v || '').toLowerCase().includes(q));
-      });
-
-      if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="18" style="text-align:center; padding:20px; color:#64748b;">No records found.</td></tr>`;
-        return;
-      }
-
-      filtered.forEach((e, index) => {
-        const info = getExpiryInfo(e.expiry);
-        const badgeClass = `badge-${info.code}`;
-        const photoThumb = e.photo
-          ? `<img src="${e.photo}" style="width:32px; height:40px; object-fit:cover; border:1px solid #cbd5e1;" />`
-          : `<span style="color:#94a3b8;">—</span>`;
-        const iqamaThumb = e.iqamaPhoto
-          ? `<img src="${e.iqamaPhoto}" style="width:52px; height:34px; object-fit:cover; border:1px solid #cbd5e1; border-radius:3px;" />`
-          : `<span style="color:#94a3b8;">—</span>`;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${photoThumb}</td>
-          <td>${iqamaThumb}</td>
-          <td>${e.empno || ''}</td>
-          <td><strong>${e.name || ''}</strong></td>
-          <td>${e.job || ''}</td>
-          <td>${e.nationality || ''}</td>
-          <td>${e.mobile || ''}</td>
-          <td>${e.iqama || ''}</td>
-          <td>${e.checkin || ''}</td>
-          <td>${e.checkout || ''}</td>
-          <td>${e.room || ''}</td>
-          <td>${e.requestedBy || ''}</td>
-          <td>${e.category || ''}</td>
-          <td>${e.expiry || ''}</td>
-          <td><span class="badge ${badgeClass}">${info.label}</span></td>
-          <td>${e.remarks || ''}</td>
-          <td>
-            <div style="display:flex; gap:4px;">
-              <button type="button" class="btn-wa" style="padding:4px 7px;" title="Share on WhatsApp with Iqama Picture" onclick="shareRowWhatsApp('${e.id}')">📲</button>
-              <button type="button" class="btn-blue" style="padding:4px 7px;" title="Edit" onclick="editEntry('${e.id}')">✏️</button>
-              ${e.photo ? `<button type="button" class="btn-sky" style="padding:4px 7px;" title="Download Photo" onclick="downloadPhotoById('${e.id}')">⬇️</button>` : ''}
-              <button type="button" class="btn-red" style="padding:4px 7px;" title="Delete" onclick="deleteEntry('${e.id}')">🗑️</button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function processPassportPhoto(imgElement, applyWhiteBg = true) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 350;
-      canvas.height = 450;
-      const ctx = canvas.getContext('2d');
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const targetRatio = 350 / 450;
-      const srcRatio = imgElement.width / imgElement.height;
-      let sx = 0, sy = 0, sw = imgElement.width, sh = imgElement.height;
-
-      if (srcRatio > targetRatio) {
-        sw = imgElement.height * targetRatio;
-        sx = (imgElement.width - sw) / 2;
-      } else {
-        sh = imgElement.width / targetRatio;
-        sy = (imgElement.height - sh) / 2;
-      }
-
-      ctx.drawImage(imgElement, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-
-      if (applyWhiteBg) {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imgData.data;
-        const corners = [
-          [d[0], d[1], d[2]],
-          [d[(canvas.width - 1) * 4], d[(canvas.width - 1) * 4 + 1], d[(canvas.width - 1) * 4 + 2]]
-        ];
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i], g = d[i + 1], b = d[i + 2];
-          const isLightNeutral = r > 185 && g > 185 && b > 185 && Math.abs(r - g) < 25 && Math.abs(g - b) < 25;
-          const matchesCorner = corners.some(c => Math.abs(r - c[0]) + Math.abs(g - c[1]) + Math.abs(b - c[2]) < 55);
-          if (isLightNeutral || matchesCorner) {
-            d[i] = 255; d[i + 1] = 255; d[i + 2] = 255;
-          }
-        }
-        ctx.putImageData(imgData, 0, 0);
-      }
-
-      currentFaceDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      document.getElementById('preview-face').src = currentFaceDataUrl;
-    }
-
-    function handleEmployeeUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        const img = new Image();
-        img.onload = () => {
-          rawEmployeeImg = img;
-          processPassportPhoto(img, true);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function removeBgManual() {
-      if (!rawEmployeeImg) {
-        alert('Please upload or capture an Employee Photo first.');
-        return;
-      }
-      processPassportPhoto(rawEmployeeImg, true);
-    }
-
-    function downloadCurrentFace() {
-      if (!currentFaceDataUrl) return alert('No employee photo available to download.');
-      const iqama = document.getElementById('f-iqama').value.trim() || 'employee_photo';
-      const a = document.createElement('a');
-      a.href = currentFaceDataUrl;
-      a.download = `${iqama}.jpg`;
-      a.click();
-    }
-
-    function downloadPhotoById(id) {
-      const item = entries.find(e => e.id === id);
-      if (!item || !item.photo) return;
-      const a = document.createElement('a');
-      a.href = item.photo;
-      a.download = `${item.iqama || 'photo'}.jpg`;
-      a.click();
-    }
-
-    function handleIqamaUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async e => {
-        const compressed = await compressImageToJpeg(e.target.result, 1000, 0.85);
-        currentIqamaDataUrl = compressed;
-        const preview = document.getElementById('preview-iqama');
-        preview.src = compressed;
-        preview.classList.remove('hidden');
-        runIqamaOCR(compressed);
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // POWERFUL OFFLINE SMART PARSER (CATCHES IQAMA NO, EXPIRY, NATIONALITY & NAME)
-    function parseSmartOfflineText(text) {
-      const normalized = text.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-      const cleanText = normalized.replace(/\s+/g, ' ');
-
-      const iqamaMatch = cleanText.match(/\b([12]\d{9}|\d{10})\b/);
-      const iqama = iqamaMatch ? iqamaMatch[0] : '';
-
-      let expiry = '';
-      const dateMatches = cleanText.match(/\b(\d{1,2})[-/](\d{1,2})[-/](20\d{2})\b/g);
-      if (dateMatches && dateMatches.length > 0) {
-        const targetDateStr = dateMatches[dateMatches.length - 1];
-        const parts = targetDateStr.split(/[-/]/);
-        expiry = `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
-      }
-
-      const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
-      let name = '';
-      for (const line of lines) {
-        const cleanLine = line.replace(/[^A-Za-z\s-]/g, '').trim();
-        if (/^[A-Z]{3,}(\s+[A-Z-]{2,}){1,4}$/.test(cleanLine) && !/KINGDOM|SAUDI|ARABIA|RESIDENT|IDENTITY|MINISTRY|INTERIOR|PASSPORT|NAME/.test(cleanLine)) {
-          name = cleanLine;
-          break;
-        }
-      }
-      if (!name) {
-        for (const line of lines) {
-          if (line.length > 5 && /[A-Z]/.test(line) && !/(KINGDOM|SAUDI|ARABIA|MINISTRY)/i.test(line)) {
-            name = line.replace(/[^A-Za-z\s]/g, '').trim();
-            if (name.split(' ').length >= 2) break;
-          }
-        }
-      }
-
-      const natList = ['India', 'Pakistan', 'Bangladesh', 'Egypt', 'Yemen', 'Philippines', 'Nepal', 'Sudan', 'Jordan', 'Syria', 'Sri Lanka', 'Indonesia', 'Nigeria', 'Ethiopia'];
-      let nationality = '';
-      for (const n of natList) {
-        if (new RegExp(`\\b${n}\\b`, 'i').test(cleanText)) {
-          nationality = n;
-          break;
-        }
-      }
-
-      return { name, iqama, expiry, nationality };
-    }
-
-    async function runIqamaOCR(dataUrl) {
-      const statusEl = document.getElementById('ocr-status');
-      try {
-        statusEl.textContent = '⏳ Scanning Card (Smart Offline OCR)...';
-        const enhancedUrl = await createHighContrastOcrImage(dataUrl);
-        const { data: { text } } = await Tesseract.recognize(enhancedUrl, 'eng');
-        const extracted = parseSmartOfflineText(text);
-
-        if (extracted.name) document.getElementById('f-name').value = extracted.name;
-        if (extracted.iqama) document.getElementById('f-iqama').value = extracted.iqama;
-        if (extracted.nationality) document.getElementById('f-nationality').value = extracted.nationality;
-        if (extracted.expiry) document.getElementById('f-expiry').value = extracted.expiry;
-
-        statusEl.textContent = '✅ Scan Complete (Verify fields)';
-      } catch (e) {
-        statusEl.textContent = '⚠️ Ready for Manual Entry';
-      }
-    }
-
-    async function openCamera(mode) {
-      activeCameraMode = mode;
-      document.getElementById('camera-title').textContent = mode === 'iqama' ? '📷 Capture Iqama Card' : '📷 Capture Employee Photo';
-      document.getElementById('camera-modal').classList.remove('hidden');
-      try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        document.getElementById('camera-video').srcObject = cameraStream;
-      } catch (err) {
-        alert('Camera access denied or unavailable.');
-        closeCamera();
-      }
-    }
-
-    function closeCamera() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(t => t.stop());
-        cameraStream = null;
-      }
-      document.getElementById('camera-modal').classList.add('hidden');
-    }
-
-    async function capturePhoto() {
-      const video = document.getElementById('camera-video');
-      const canvas = document.getElementById('camera-canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      const rawUrl = canvas.toDataURL('image/jpeg', 0.92);
-      closeCamera();
-
-      if (activeCameraMode === 'iqama') {
-        const compressed = await compressImageToJpeg(rawUrl, 1000, 0.85);
-        currentIqamaDataUrl = compressed;
-        const preview = document.getElementById('preview-iqama');
-        preview.src = compressed;
-        preview.classList.remove('hidden');
-        runIqamaOCR(compressed);
-      } else {
-        const img = new Image();
-        img.onload = () => {
-          rawEmployeeImg = img;
-          processPassportPhoto(img, true);
-        };
-        img.src = rawUrl;
-      }
-    }
-
-    function backupData() {
-      const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `Iqama_Backup_${getTodayDDMMYYYY()}.json`;
-      a.click();
-    }
-
-    function restoreData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const imported = JSON.parse(e.target.result);
-          if (Array.isArray(imported)) {
-            entries = imported;
-            refreshAll();
-            alert(`Restored ${entries.length} records successfully!`);
-          }
-        } catch {
-          alert('Invalid backup JSON file.');
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    function exportToExcel() {
-      const rows = entries.map((e, i) => ({
-        'S.No#': i + 1,
-        'Emp #': e.empno,
-        'Employee Name': e.name,
-        'Job Title': e.job,
-        'Nationality': e.nationality,
-        'Mobile #': e.mobile,
-        'Iqama': e.iqama,
-        'Camp Check-in Date': e.checkin,
-        'Checkout Date': e.checkout,
-        'Room No#': e.room,
-        'Requested By': e.requestedBy,
-        'Room Category': e.category,
-        'Remarks': e.remarks,
-        'Iqama Expiry': e.expiry
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-      XLSX.writeFile(wb, `Dhurma_Iqama_List_${getTodayDDMMYYYY()}.xlsx`);
-    }
-
-    function exportToPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape' });
-      doc.setFontSize(14);
-      doc.text('Iqama Data Entry Master List', 14, 15);
-      doc.autoTable({
-        startY: 20,
-        head: [['S.No', 'Emp #', 'Employee Name', 'Job Title', 'Nationality', 'Mobile #', 'Iqama', 'Check-in', 'Room', 'Requested By', 'Expiry']],
-        body: entries.map((e, i) => [
-          i + 1, e.empno, e.name, e.job, e.nationality, e.mobile, e.iqama, e.checkin, e.room, e.requestedBy, e.expiry
-        ]),
-        styles: { fontSize: 8 }
-      });
-      doc.save(`Iqama_Master_List_${getTodayDDMMYYYY()}.pdf`);
-    }
-  </script>
-</body>
-</html>
+        checkin:
