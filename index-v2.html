@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iqama Data Entry Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; }
+    .tab-active { border-bottom: 3px solid #1e3a8a; color: #1e3a8a; font-weight: 700; }
+    .navy-header { background-color: #1b365d; color: white; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Navbar -->
+  <header class="navy-header shadow-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+      <div>
+        <h1 class="text-lg md:text-xl font-bold tracking-wide">🪪 Iqama Data Entry Dashboard</h1>
+        <p class="text-xs text-blue-200">Created By:- 8306 - ABUBAKAR MD HUSSAIN</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded shadow font-medium flex items-center gap-1">
+          📊 Excel
+        </button>
+        <button onclick="exportToPDF()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded shadow font-medium flex items-center gap-1">
+          📄 PDF (A3)
+        </button>
+        <button onclick="backupData()" title="Download Backup File to Transfer to Phone/Laptop" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-1.5 rounded shadow font-medium flex items-center gap-1">
+          💾 Backup
+        </button>
+        <label title="Restore Backup File from Another Device" class="bg-sky-600 hover:bg-sky-700 text-white text-xs px-3 py-1.5 rounded shadow font-medium flex items-center gap-1 cursor-pointer">
+          📂 Restore
+          <input type="file" accept=".json" class="hidden" onchange="restoreData(event)" />
+        </label>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <nav class="bg-white text-slate-600 border-b px-4 flex gap-6 text-sm overflow-x-auto">
+      <button id="tab-dashboard" onclick="switchTab('dashboard')" class="py-3 tab-active whitespace-nowrap">📊 Dashboard</button>
+      <button id="tab-new" onclick="switchTab('new')" class="py-3 whitespace-nowrap">➕ New Entry</button>
+      <button id="tab-list" onclick="switchTab('list')" class="py-3 whitespace-nowrap">📋 Master List (<span id="list-count">0</span>)</button>
+    </nav>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-grow max-w-7xl w-full mx-auto p-4">
+
+    <!-- ==================== 1. DASHBOARD TAB ==================== -->
+    <section id="view-dashboard" class="space-y-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-700">
+          <p class="text-xs text-slate-500 font-semibold">Total Entries</p>
+          <p id="kpi-total" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-600">
+          <p class="text-xs text-slate-500 font-semibold">Nationalities</p>
+          <p id="kpi-nat" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-600">
+          <p class="text-xs text-slate-500 font-semibold">Expired</p>
+          <p id="kpi-expired" class="text-2xl font-bold text-red-600 mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500">
+          <p class="text-xs text-slate-500 font-semibold">Expiring (≤30d)</p>
+          <p id="kpi-30" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400">
+          <p class="text-xs text-slate-500 font-semibold">Expiring (31-90d)</p>
+          <p id="kpi-90" class="text-2xl font-bold text-yellow-600 mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-600">
+          <p class="text-xs text-slate-500 font-semibold">Valid (>90d)</p>
+          <p id="kpi-valid" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-2">Nationality</h3>
+          <canvas id="chart-nationality" height="200"></canvas>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-2">Iqama Status</h3>
+          <canvas id="chart-status" height="200"></canvas>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-2">Expiry by Month</h3>
+          <canvas id="chart-expiry" height="200"></canvas>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-2">Job Title</h3>
+          <canvas id="chart-job" height="200"></canvas>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-2">Requested By</h3>
+          <canvas id="chart-requested" height="200"></canvas>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-2">Room No#</h3>
+          <canvas id="chart-room" height="200"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 2. NEW / EDIT ENTRY TAB ==================== -->
+    <section id="view-new" class="hidden max-w-3xl mx-auto bg-white p-5 rounded-xl shadow-sm space-y-5">
+      <div class="border-b pb-3 flex justify-between items-center">
+        <h2 id="form-heading" class="text-lg font-bold text-slate-800">Add New Iqama Entry</h2>
+        <span id="ocr-status" class="text-xs font-semibold text-blue-600"></span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border">
+        <div class="space-y-2">
+          <p class="text-xs font-bold text-slate-700">1. Iqama Photo (Auto-Read & Face Crop)</p>
+          <div class="flex gap-2">
+            <button type="button" onclick="openCamera('iqama')" class="flex-1 bg-blue-700 hover:bg-blue-800 text-white text-xs py-2 px-3 rounded font-medium">
+              📷 Iqama Camera
+            </button>
+            <label class="flex-1 bg-slate-700 hover:bg-slate-800 text-white text-xs py-2 px-3 rounded font-medium text-center cursor-pointer">
+              🖼️ Gallery
+              <input type="file" accept="image/*" class="hidden" onchange="handleIqamaUpload(event)" />
+            </label>
+          </div>
+          <img id="preview-iqama" class="hidden w-full h-32 object-contain border rounded bg-white mt-2" />
+        </div>
+
+        <div class="space-y-2">
+          <p class="text-xs font-bold text-slate-700">2. Employee Photo (35×45 mm White BG)</p>
+          <div class="flex gap-2">
+            <button type="button" onclick="openCamera('employee')" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 px-3 rounded font-medium">
+              📷 Employee Photo
+            </button>
+            <label class="flex-1 bg-slate-700 hover:bg-slate-800 text-white text-xs py-2 px-3 rounded font-medium text-center cursor-pointer">
+              🖼️ Gallery
+              <input type="file" accept="image/*" class="hidden" onchange="handleEmployeeUpload(event)" />
+            </label>
+          </div>
+          <div class="flex items-center gap-3 mt-2">
+            <img id="preview-face" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='90' viewBox='0 0 70 90'%3E%3Crect width='70' height='90' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%2364748b'%3E35x45mm%3C/text%3E%3C/svg%3E" class="w-16 h-20 object-cover border rounded bg-white shadow-sm" />
+            <span class="text-[11px] text-slate-500">Auto-cropped from Iqama or replaced by Employee Photo (300 DPI PNG).</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="camera-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
+        <div class="bg-white rounded-xl overflow-hidden max-w-md w-full">
+          <div class="p-3 navy-header flex justify-between items-center">
+            <span id="camera-title" class="text-sm font-bold">Camera</span>
+            <button onclick="closeCamera()" class="text-white text-sm font-bold">✕ Close</button>
+          </div>
+          <video id="camera-video" autoplay playsinline class="w-full bg-black max-h-80 object-cover"></video>
+          <div class="p-3 flex justify-center gap-3 bg-slate-100">
+            <button type="button" onclick="capturePhoto()" class="bg-emerald-600 text-white px-5 py-2 rounded-full font-bold text-sm shadow">
+              📸 Capture
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form id="entry-form" onsubmit="saveEntry(event)" class="space-y-4">
+        <input type="hidden" id="edit-id" value="" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Employee Name *</label>
+            <input type="text" id="f-name" required placeholder="Abubakar Md Hussain" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Iqama Number (10 Digits) *</label>
+            <input type="text" id="f-iqama" required maxlength="10" placeholder="2563578562" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nationality *</label>
+            <input type="text" id="f-nationality" required placeholder="India" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Iqama Expiry Date (DD-MM-YYYY) *</label>
+            <input type="text" id="f-expiry" required placeholder="18-02-2027" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-600 outline-none" />
+          </div>
+        </div>
+
+        <details class="border rounded-lg p-3 bg-slate-50" open>
+          <summary class="text-xs font-bold text-blue-800 cursor-pointer select-none">📂 Baaki Fields (Emp #, Job, Mobile, Camp, Room, Remarks)</summary>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Emp #</label>
+              <input type="text" id="f-empno" placeholder="Rental-Tamimi / 8306" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Job Title</label>
+              <input type="text" id="f-job" placeholder="Mechanic / Mason" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Mobile #</label>
+              <input type="text" id="f-mobile" placeholder="500950638" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Requested By</label>
+              <input type="text" id="f-requested" placeholder="Mr. Tarek" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Camp Check in Date</label>
+              <input type="text" id="f-checkin" placeholder="DD-MM-YYYY" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Checkout Date</label>
+              <input type="text" id="f-checkout" placeholder="DD-MM-YYYY" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Room No#</label>
+              <input type="text" id="f-room" placeholder="101" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Room Category</label>
+              <input type="text" id="f-roomcat" placeholder="Standard / Junior" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Remarks</label>
+              <input type="text" id="f-remarks" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+            <div class="sm:col-span-2 md:col-span-3">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Remarks 2</label>
+              <input type="text" id="f-remarks2" class="w-full border rounded px-2.5 py-1.5 text-sm bg-white" />
+            </div>
+          </div>
+        </details>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="cancelEdit()" class="px-4 py-2 border rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Clear / Cancel</button>
+          <button type="submit" id="save-btn" class="px-6 py-2 bg-blue-800 hover:bg-blue-900 text-white rounded-lg text-sm font-bold shadow">💾 Save Entry</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ==================== 3. MASTER LIST TAB ==================== -->
+    <section id="view-list" class="hidden space-y-4">
+      <div class="bg-white p-3 rounded-xl shadow-sm flex flex-wrap gap-3 justify-between items-center">
+        <input type="text" id="search-input" onkeyup="renderMasterList()" placeholder="🔍 Search Name, Iqama, Emp#, Nationality, Room..." class="border rounded-lg px-3 py-2 text-sm w-full sm:w-80 outline-none focus:ring-2 focus:ring-blue-600" />
+        <span class="text-xs text-slate-500">Use <b>Backup</b> & <b>Restore</b> buttons at top to transfer data between Phone & Laptop</span>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="navy-header">
+              <th class="p-2.5">Actions</th>
+              <th class="p-2.5">Photo</th>
+              <th class="p-2.5">Emp #</th>
+              <th class="p-2.5">Employee Name</th>
+              <th class="p-2.5">Job Title</th>
+              <th class="p-2.5">Nationality</th>
+              <th class="p-2.5">Mobile #</th>
+              <th class="p-2.5">Iqama</th>
+              <th class="p-2.5">Iqama Expiry Date</th>
+              <th class="p-2.5">Camp Check in</th>
+              <th class="p-2.5">Checkout</th>
+              <th class="p-2.5">Room No#</th>
+              <th class="p-2.5">Requested By</th>
+              <th class="p-2.5">Room Cat.</th>
+              <th class="p-2.5">Remarks</th>
+              <th class="p-2.5">Remarks 2</th>
+            </tr>
+          </thead>
+          <tbody id="master-tbody" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bg-slate-800 text-slate-300 text-center text-xs py-3 mt-8">
+    Created By:- 8306 - ABUBAKAR MD HUSSAIN
+  </footer>
+
+  <canvas id="work-canvas" class="hidden"></canvas>
+
+  <script>
+    let entries = JSON.parse(localStorage.getItem('iqama_entries_v1') || '[]');
+    let currentFaceDataUrl = '';
+    let cameraStream = null;
+    let cameraMode = 'iqama';
+    let charts = {};
+
+    const ARABIC_TO_ENG_DIGITS = { '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9' };
+    const ARABIC_NATIONALITIES = {
+      'الهند': 'India', 'باكستان': 'Pakistan', 'بنغلاديش': 'Bangladesh', 'بنجلاديش': 'Bangladesh',
+      'اليمن': 'Yemen', 'مصر': 'Egypt', 'الفلبين': 'Philippines', 'نيبال': 'Nepal',
+      'سريلانكا': 'Sri Lanka', 'السودان': 'Sudan', 'سوريا': 'Syria', 'الأردن': 'Jordan'
+    };
+
+    function toEnglishDigits(str) {
+      if (!str) return '';
+      return str.replace(/[٠-٩]/g, d => ARABIC_TO_ENG_DIGITS[d] || d);
+    }
+
+    function toProperCase(str) {
+      if (!str) return '';
+      return str.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function normalizeDateDDMMYYYY(input) {
+      if (!input) return '';
+      let s = toEnglishDigits(input.trim()).replace(/[\/\.]/g, '-');
+      let parts = s.split('-');
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          return `${parts[2].padStart(2,'0')}-${parts[1].padStart(2,'0')}-${parts[0]}`;
+        } else {
+          return `${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}-${parts[2]}`;
+        }
+      }
+      return s;
+    }
+
+    function parseDateObj(ddmmyyyy) {
+      if (!ddmmyyyy) return null;
+      const parts = ddmmyyyy.split('-');
+      if (parts.length !== 3) return null;
+      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    }
+
+    function getExpiryStatus(ddmmyyyy) {
+      const exp = parseDateObj(ddmmyyyy);
+      if (!exp || isNaN(exp)) return 'Unknown';
+      const today = new Date(); today.setHours(0,0,0,0);
+      const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) return 'Expired';
+      if (diffDays <= 30) return '30 Days';
+      if (diffDays <= 90) return '31-90 Days';
+      return 'Valid';
+    }
+
+    function switchTab(tab) {
+      ['dashboard', 'new', 'list'].forEach(t => {
+        document.getElementById('view-' + t).classList.add('hidden');
+        document.getElementById('tab-' + t).classList.remove('tab-active');
+      });
+      document.getElementById('view-' + tab).classList.remove('hidden');
+      document.getElementById('tab-' + tab).classList.add('tab-active');
+      if (tab === 'dashboard') updateDashboard();
+      if (tab === 'list') renderMasterList();
+    }
+
+    // ==================== BACKUP & RESTORE (SYNC DEVICES) ====================
+    function backupData() {
+      if (entries.length === 0) return alert('Abhi koi entry save nahi hai jiska backup liya jaye.');
+      const dataStr = JSON.stringify(entries, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const dateTag = new Date().toISOString().slice(0, 10);
+      saveAs(blob, `Iqama_Dashboard_Backup_${dateTag}.json`);
+    }
+
+    function restoreData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (!Array.isArray(imported)) throw new Error('Invalid format');
+
+          const replaceAll = confirm(
+            `Backup file me ${imported.length} entries mili hain.\n\n` +
+            `• OK dabayein: Purane aur naye data ko MERGE (jodne) ke liye.\n` +
+            `• Cancel dabayein: Pura data REPLACE karne ke liye.`
+          );
+
+          if (replaceAll) {
+            const existingMap = new Map(entries.map(item => [item.iqama || item.id, item]));
+            imported.forEach(item => existingMap.set(item.iqama || item.id, item));
+            entries = Array.from(existingMap.values());
+          } else {
+            entries = imported;
+          }
+
+          localStorage.setItem('iqama_entries_v1', JSON.stringify(entries));
+          updateDashboard();
+          renderMasterList();
+          alert(`✅ Restore Successful! Total entries ab: ${entries.length}`);
+        } catch (err) {
+          alert('❌ Galat backup file! Kripya sahi .json backup file chunein.');
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    // ==================== PHOTO CROPPING ====================
+    function processPassportPhoto(imgElement, isIqamaCard = false) {
+      const canvas = document.getElementById('work-canvas');
+      const ctx = canvas.getContext('2d');
+      const targetW = 413;
+      const targetH = 531;
+      canvas.width = targetW;
+      canvas.height = targetH;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      let sx, sy, sw, sh;
+      if (isIqamaCard) {
+        sx = imgElement.width * 0.05;
+        sy = imgElement.height * 0.24;
+        sw = imgElement.width * 0.24;
+        sh = imgElement.height * 0.46;
+      } else {
+        const targetRatio = targetW / targetH;
+        const imgRatio = imgElement.width / imgElement.height;
+        if (imgRatio > targetRatio) {
+          sh = imgElement.height;
+          sw = sh * targetRatio;
+          sx = (imgElement.width - sw) / 2;
+          sy = 0;
+        } else {
+          sw = imgElement.width;
+          sh = sw / targetRatio;
+          sx = 0;
+          sy = (imgElement.height - sh) / 2;
+        }
+      }
+
+      ctx.drawImage(imgElement, sx, sy, sw, sh, 0, 0, targetW, targetH);
+      currentFaceDataUrl = canvas.toDataURL('image/png');
+      document.getElementById('preview-face').src = currentFaceDataUrl;
+    }
+
+    async function handleIqamaUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(ev) {
+        const dataUrl = ev.target.result;
+        const img = new Image();
+        img.onload = async function() {
+          const prev = document.getElementById('preview-iqama');
+          prev.src = dataUrl;
+          prev.classList.remove('hidden');
+          if (!currentFaceDataUrl) processPassportPhoto(img, true);
+          await runFreeOCR(dataUrl);
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleEmployeeUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+          processPassportPhoto(img, false);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function runFreeOCR(imageDataUrl) {
+      const statusEl = document.getElementById('ocr-status');
+      statusEl.textContent = '⏳ Reading Iqama (OCR)...';
+      try {
+        const { data: { text } } = await Tesseract.recognize(imageDataUrl, 'eng+ara');
+        const cleanText = toEnglishDigits(text);
+
+        const iqamaMatch = cleanText.match(/\b[12]\d{9}\b/);
+        if (iqamaMatch) {
+          document.getElementById('f-iqama').value = iqamaMatch[0];
+        } else {
+          alert('10-digit Iqama number clearly read nahi hua. Kripya manually check/enter karein.');
+        }
+
+        const dateMatches = cleanText.match(/\b(20\d{2}[-\/\.]\d{2}[-\/\.]\d{2}|\d{2}[-\/\.]\d{2}[-\/\.](20\d{2}))\b/g);
+        if (dateMatches && dateMatches.length > 0) {
+          const futureDate = dateMatches.find(d => d.includes('202') || d.includes('203')) || dateMatches[0];
+          document.getElementById('f-expiry').value = normalizeDateDDMMYYYY(futureDate);
+        }
+
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        for (let line of lines) {
+          if (/^[A-Z\s]{8,}$/.test(line) && !line.includes('KINGDOM') && !line.includes('MINISTRY') && !line.includes('RESIDENT')) {
+            document.getElementById('f-name').value = toProperCase(line);
+            break;
+          }
+        }
+
+        for (let [ar, en] of Object.entries(ARABIC_NATIONALITIES)) {
+          if (text.includes(ar)) {
+            document.getElementById('f-nationality').value = en;
+            break;
+          }
+        }
+
+        statusEl.textContent = '✅ Scan Complete (Verify fields)';
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = '⚠️ Auto-read failed, please fill manually';
+      }
+    }
+
+    async function openCamera(mode) {
+      cameraMode = mode;
+      document.getElementById('camera-title').textContent = mode === 'iqama' ? '📷 Capture Iqama' : '📷 Capture Employee Photo';
+      const modal = document.getElementById('camera-modal');
+      const video = document.getElementById('camera-video');
+      modal.classList.remove('hidden');
+
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode === 'iqama' ? 'environment' : 'user' },
+          audio: false
+        });
+        video.srcObject = cameraStream;
+      } catch (err) {
+        closeCamera();
+        alert('Camera permission nahi mili ya available nahi hai. Kripya Gallery se photo chunein.');
+      }
+    }
+
+    function closeCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+      document.getElementById('camera-modal').classList.add('hidden');
+    }
+
+    async function capturePhoto() {
+      const video = document.getElementById('camera-video');
+      const canvas = document.getElementById('work-canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/png');
+      closeCamera();
+
+      const img = new Image();
+      img.onload = async function() {
+        if (cameraMode === 'iqama') {
+          const prev = document.getElementById('preview-iqama');
+          prev.src = dataUrl;
+          prev.classList.remove('hidden');
+          if (!currentFaceDataUrl) processPassportPhoto(img, true);
+          await runFreeOCR(dataUrl);
+        } else {
+          processPassportPhoto(img, false);
+        }
+      };
+      img.src = dataUrl;
+    }
+
+    function resetFormState() {
+      currentFaceDataUrl = '';
+      document.getElementById('edit-id').value = '';
+      document.getElementById('form-heading').textContent = 'Add New Iqama Entry';
+      document.getElementById('save-btn').textContent = '💾 Save Entry';
+      document.getElementById('preview-iqama').classList.add('hidden');
+      document.getElementById('preview-face').src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='90' viewBox='0 0 70 90'%3E%3Crect width='70' height='90' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%2364748b'%3E35x45mm%3C/text%3E%3C/svg%3E";
+      document.getElementById('ocr-status').textContent = '';
+    }
+
+    function cancelEdit() {
+      document.getElementById('entry-form').reset();
+      resetFormState();
+    }
+
+    function editEntry(id) {
+      const item = entries.find(e => e.id === id);
+      if (!item) return;
+
+      document.getElementById('edit-id').value = item.id;
+      document.getElementById('form-heading').textContent = '✏️ Edit Iqama Entry';
+      document.getElementById('save-btn').textContent = '✅ Update Entry';
+
+      document.getElementById('f-empno').value = item.empNo || '';
+      document.getElementById('f-name').value = item.name || '';
+      document.getElementById('f-job').value = item.jobTitle || '';
+      document.getElementById('f-nationality').value = item.nationality || '';
+      document.getElementById('f-mobile').value = item.mobile || '';
+      document.getElementById('f-iqama').value = item.iqama || '';
+      document.getElementById('f-checkin').value = item.checkin || '';
+      document.getElementById('f-checkout').value = item.checkout || '';
+      document.getElementById('f-room').value = item.roomNo || '';
+      document.getElementById('f-requested').value = item.requestedBy || '';
+      document.getElementById('f-roomcat').value = item.roomCategory || '';
+      document.getElementById('f-remarks').value = item.remarks || '';
+      document.getElementById('f-remarks2').value = item.remarks2 || '';
+      document.getElementById('f-expiry').value = item.expiry || '';
+
+      currentFaceDataUrl = item.photo || '';
+      if (currentFaceDataUrl) {
+        document.getElementById('preview-face').src = currentFaceDataUrl;
+      }
+
+      switchTab('new');
+    }
+
+    function saveEntry(e) {
+      e.preventDefault();
+      const iqamaVal = toEnglishDigits(document.getElementById('f-iqama').value.trim());
+      if (!/^\d{10}$/.test(iqamaVal)) {
+        alert('Warning: Iqama Number 10 digits ka hona chahiye!');
+      }
+
+      const editId = document.getElementById('edit-id').value;
+      const entryData = {
+        id: editId ? Number(editId) : Date.now(),
+        empNo: document.getElementById('f-empno').value.trim(),
+        name: toProperCase(document.getElementById('f-name').value),
+        jobTitle: toProperCase(document.getElementById('f-job').value),
+        nationality: toProperCase(document.getElementById('f-nationality').value),
+        mobile: toEnglishDigits(document.getElementById('f-mobile').value.trim()),
+        iqama: iqamaVal,
+        checkin: normalizeDateDDMMYYYY(document.getElementById('f-checkin').value),
+        checkout: normalizeDateDDMMYYYY(document.getElementById('f-checkout').value),
+        roomNo: document.getElementById('f-room').value.trim(),
+        requestedBy: toProperCase(document.getElementById('f-requested').value),
+        roomCategory: document.getElementById('f-roomcat').value.trim(),
+        remarks: document.getElementById('f-remarks').value.trim(),
+        remarks2: document.getElementById('f-remarks2').value.trim(),
+        expiry: normalizeDateDDMMYYYY(document.getElementById('f-expiry').value),
+        photo: currentFaceDataUrl
+      };
+
+      if (editId) {
+        const idx = entries.findIndex(item => item.id === Number(editId));
+        if (idx !== -1) entries[idx] = entryData;
+      } else {
+        entries.unshift(entryData);
+      }
+
+      localStorage.setItem('iqama_entries_v1', JSON.stringify(entries));
+      document.getElementById('entry-form').reset();
+      resetFormState();
+      alert(editId ? '✅ Entry Updated Successfully!' : '✅ Entry Saved Successfully!');
+      switchTab('list');
+    }
+
+    function deleteEntry(id) {
+      if (!confirm('Delete this entry?')) return;
+      entries = entries.filter(item => item.id !== id);
+      localStorage.setItem('iqama_entries_v1', JSON.stringify(entries));
+      renderMasterList();
+      updateDashboard();
+    }
+
+    function downloadPhotoPNG(id) {
+      const item = entries.find(e => e.id === id);
+      if (!item || !item.photo) return alert('No photo available for this entry.');
+      const a = document.createElement('a');
+      a.href = item.photo;
+      a.download = `${item.iqama || 'photo'}_${item.name.replace(/\s+/g,'_')}.png`;
+      a.click();
+    }
+
+    async function shareEntryCard(id) {
+      const item = entries.find(e => e.id === id);
+      if (!item) return;
+
+      const text8Lines = [
+        `1- 🆔 Emp#:- ${item.empNo || '-'}`,
+        `2- 👤 Name:- ${item.name}`,
+        `3- 🪪 Iqama Number:- ${item.iqama}`,
+        `4- 🌍 Nationality:- ${item.nationality}`,
+        `5- 🗓️ Iqama Exp.:- ${item.expiry}`,
+        `6- 📱 Mobile:- ${item.mobile || '-'}`,
+        `7- 🛠️ Work:- ${item.jobTitle || '-'}`,
+        `8- 🙋 Requested By:- ${item.requestedBy || '-'}`,
+        ``,
+        `Created By:- 8306 - ABUBAKAR MD HUSSAIN`
+      ].join('\n');
+
+      const canvas = document.getElementById('work-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 600;
+      canvas.height = 760;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, 600, 760);
+
+      ctx.fillStyle = '#1b365d';
+      ctx.fillRect(0, 0, 600, 55);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('EMPLOYEE IQAMA DETAILS', 20, 35);
+
+      if (item.photo) {
+        const img = new Image();
+        img.src = item.photo;
+        await new Promise(r => { img.onload = r; img.onerror = r; });
+        ctx.drawImage(img, 195, 75, 210, 270);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(195, 75, 210, 270);
+      }
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '18px sans-serif';
+      const lines = text8Lines.split('\n').slice(0, 8);
+      lines.forEach((line, idx) => {
+        ctx.fillText(line, 35, 385 + idx * 38);
+      });
+
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(0, 710, 600, 50);
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText('Created By:- 8306 - ABUBAKAR MD HUSSAIN', 35, 740);
+
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], `${item.iqama}_card.png`, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], text: text8Lines });
+            return;
+          } catch (e) {}
+        }
+        saveAs(blob, `${item.iqama}_card.png`);
+        navigator.clipboard?.writeText(text8Lines);
+        window.open(`https://wa.me/?text=${encodeURIComponent(text8Lines)}`, '_blank');
+      });
+    }
+
+    function renderMasterList() {
+      const q = document.getElementById('search-input').value.toLowerCase();
+      const filtered = entries.filter(e =>
+        (e.name || '').toLowerCase().includes(q) ||
+        (e.iqama || '').includes(q) ||
+        (e.empNo || '').toLowerCase().includes(q) ||
+        (e.nationality || '').toLowerCase().includes(q) ||
+        (e.roomNo || '').toLowerCase().includes(q)
+      );
+
+      document.getElementById('list-count').textContent = entries.length;
+      const tbody = document.getElementById('master-tbody');
+      tbody.innerHTML = filtered.map(e => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-2 whitespace-nowrap space-x-1">
+            <button onclick="shareEntryCard(${e.id})" title="Share WhatsApp Card" class="bg-emerald-600 text-white px-2 py-1 rounded">📤</button>
+            <button onclick="editEntry(${e.id})" title="Edit Entry" class="bg-amber-500 text-white px-2 py-1 rounded">✏️</button>
+            <button onclick="downloadPhotoPNG(${e.id})" title="Download 35x45 PNG" class="bg-blue-600 text-white px-2 py-1 rounded">🖼️</button>
+            <button onclick="deleteEntry(${e.id})" title="Delete" class="bg-red-600 text-white px-2 py-1 rounded">🗑️</button>
+          </td>
+          <td class="p-2">${e.photo ? `<img src="${e.photo}" class="w-8 h-10 object-cover border rounded"/>` : '-'}</td>
+          <td class="p-2 font-medium">${e.empNo || ''}</td>
+          <td class="p-2 font-bold text-slate-800">${e.name}</td>
+          <td class="p-2">${e.jobTitle || ''}</td>
+          <td class="p-2">${e.nationality}</td>
+          <td class="p-2">${e.mobile || ''}</td>
+          <td class="p-2 font-mono">${e.iqama}</td>
+          <td class="p-2 font-semibold">${e.expiry}</td>
+          <td class="p-2">${e.checkin || ''}</td>
+          <td class="p-2">${e.checkout || ''}</td>
+          <td class="p-2">${e.roomNo || ''}</td>
+          <td class="p-2">${e.requestedBy || ''}</td>
+          <td class="p-2">${e.roomCategory || ''}</td>
+          <td class="p-2">${e.remarks || ''}</td>
+          <td class="p-2">${e.remarks2 || ''}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updateDashboard() {
+      document.getElementById('list-count').textContent = entries.length;
+      document.getElementById('kpi-total').textContent = entries.length;
+
+      const nats = new Set(entries.map(e => e.nationality).filter(Boolean));
+      document.getElementById('kpi-nat').textContent = nats.size;
+
+      let expired = 0, d30 = 0, d90 = 0, valid = 0;
+      const countBy = (key) => entries.reduce((acc, e) => {
+        const val = e[key] || 'N/A';
+        acc[val] = (acc[val] || 0) + 1;
+        return acc;
+      }, {});
+
+      const expiryMonths = {};
+      entries.forEach(e => {
+        const st = getExpiryStatus(e.expiry);
+        if (st === 'Expired') expired++;
+        else if (st === '30 Days') d30++;
+        else if (st === '31-90 Days') d90++;
+        else if (st === 'Valid') valid++;
+
+        if (e.expiry && e.expiry.split('-').length === 3) {
+          const m = e.expiry.slice(3);
+          expiryMonths[m] = (expiryMonths[m] || 0) + 1;
+        }
+      });
+
+      document.getElementById('kpi-expired').textContent = expired;
+      document.getElementById('kpi-30').textContent = d30;
+      document.getElementById('kpi-90').textContent = d90;
+      document.getElementById('kpi-valid').textContent = valid;
+
+      renderBarChart('chart-nationality', countBy('nationality'), '#1e40af');
+      renderBarChart('chart-status', { Expired: expired, '30 Days': d30, '31-90 Days': d90, Valid: valid }, '#dc2626');
+      renderBarChart('chart-expiry', expiryMonths, '#0d9488');
+      renderBarChart('chart-job', countBy('jobTitle'), '#4f46e5');
+      renderBarChart('chart-requested', countBy('requestedBy'), '#d97706');
+      renderBarChart('chart-room', countBy('roomNo'), '#059669');
+    }
+
+    function renderBarChart(canvasId, dataObj, color) {
+      if (charts[canvasId]) charts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(dataObj),
+          datasets: [{ data: Object.values(dataObj), backgroundColor: color, borderRadius: 4 }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+
+    async function exportToExcel() {
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Iqama Master List');
+
+      const headers = [
+        'Emp #', 'Employee Name', 'Job Title', 'Nationality', 'Mobile #',
+        'Iqama', 'Camp Check in Date', 'Checkout Date', 'Room No#',
+        'Requested By', 'Room Category', 'Remarks', 'Remarks 2',
+        'Iqama Expiry Date', 'Photos'
+      ];
+
+      const headerRow = ws.addRow(headers);
+      headerRow.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B365D' } };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      headerRow.height = 28;
+
+      ws.columns = headers.map((h, i) => ({ width: i === 1 ? 26 : (i === 14 ? 14 : 18) }));
+
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const row = ws.addRow([
+          e.empNo, e.name, e.jobTitle, e.nationality, e.mobile,
+          e.iqama, e.checkin, e.checkout, e.roomNo,
+          e.requestedBy, e.roomCategory, e.remarks, e.remarks2,
+          e.expiry, ''
+        ]);
+        row.height = 55;
+
+        if (e.photo) {
+          const imgId = wb.addImage({ base64: e.photo, extension: 'png' });
+          ws.addImage(imgId, {
+            tl: { col: 14, row: i + 1 },
+            ext: { width: 42, height: 54 }
+          });
+        }
+      }
+
+      ws.addRow([]);
+      ws.addRow(['Created By:- 8306 - ABUBAKAR MD HUSSAIN']);
+
+      const buf = await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buf]), 'Iqama_Master_List.xlsx');
+    }
+
+    function exportToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+
+      doc.setFontSize(14);
+      doc.text('Iqama Master List - Created By:- 8306 - ABUBAKAR MD HUSSAIN', 14, 15);
+
+      const head = [[
+        'Emp #', 'Employee Name', 'Job Title', 'Nationality', 'Mobile #',
+        'Iqama', 'Check In', 'Checkout', 'Room No#',
+        'Requested By', 'Room Cat.', 'Remarks', 'Remarks 2',
+        'Iqama Expiry', 'Photos'
+      ]];
+
+      const body = entries.map(e => [
+        e.empNo, e.name, e.jobTitle, e.nationality, e.mobile,
+        e.iqama, e.checkin, e.checkout, e.roomNo,
+        e.requestedBy, e.roomCategory, e.remarks, e.remarks2,
+        e.expiry, ''
+      ]);
+
+      doc.autoTable({
+        startY: 20,
+        head: head,
+        body: body,
+        theme: 'grid',
+        styles: { fontSize: 8, minCellHeight: 16, valign: 'middle' },
+        headStyles: { fillColor: [27, 54, 93] },
+        didDrawCell: function(data) {
+          if (data.section === 'body' && data.column.index === 14) {
+            const photo = entries[data.row.index]?.photo;
+            if (photo) {
+              doc.addImage(photo, 'PNG', data.cell.x + 2, data.cell.y + 1, 11, 14);
+            }
+          }
+        }
+      });
+
+      doc.save('Iqama_Master_List_A3.pdf');
+    }
+
+    updateDashboard();
+    renderMasterList();
+  </script>
+</body>
+</html>
