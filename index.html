@@ -18,7 +18,7 @@
     .btn-group { display: flex; flex-wrap: wrap; gap: 6px; }
     button, .file-btn { border: none; padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; color: #fff; display: inline-flex; align-items: center; gap: 4px; transition: opacity 0.15s; }
     button:hover, .file-btn:hover { opacity: 0.9; }
-    .btn-amber { background: #d97706; } .btn-sky { background: #0284c7; } .btn-indigo { background: #4f46e5; }
+    .btn-sky { background: #0284c7; } .btn-indigo { background: #4f46e5; }
     .btn-green { background: #059669; } .btn-red { background: #e11d48; } .btn-blue { background: #1d4ed8; }
     .btn-dark { background: #334155; } .btn-gray { background: #e2e8f0; color: #334155; }
     .btn-wa { background: #16a34a; }
@@ -65,7 +65,6 @@
       <p>Created By:- 8306 - ABUBAKAR MD HUSSAIN</p>
     </div>
     <div class="btn-group">
-      <button type="button" class="btn-amber" onclick="openApiKeyModal()">🔑 AI Key</button>
       <button type="button" class="btn-sky" onclick="backupData()">💾 Backup</button>
       <label class="file-btn btn-indigo" style="margin:0;">📂 Restore <input type="file" accept=".json" hidden onchange="restoreData(event)" /></label>
       <button type="button" class="btn-green" onclick="exportToExcel()">📊 Excel</button>
@@ -105,7 +104,7 @@
       <div class="card" style="max-width:850px; margin:0 auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
           <h3 id="form-heading" style="font-size:16px; margin:0;">Add New Iqama Entry</h3>
-          <span id="ocr-status" style="font-size:12px; font-weight:700; color:#1d4ed8;">Ready</span>
+          <span id="ocr-status" style="font-size:12px; font-weight:700; color:#1d4ed8;">Ready (Offline Smart Scanner)</span>
         </div>
 
         <div class="photo-box">
@@ -245,33 +244,12 @@
     </div>
   </div>
 
-  <!-- AI KEY MODAL -->
-  <div id="apikey-modal" class="modal hidden">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span>🔑 AI OCR Key (Optional)</span>
-        <button type="button" class="btn-red" onclick="closeApiKeyModal()" style="padding:4px 8px;">✕</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size:12px; color:#475569; margin-bottom:10px;">
-          Paste a Google Cloud / Gemini API Key (starts with <b>AIzaSy...</b>) for instant AI card reading. Leave blank to use built-in Offline OCR automatically.
-        </p>
-        <input type="password" id="api-key-input" placeholder="AIzaSy..." />
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
-          <button type="button" class="btn-gray" onclick="closeApiKeyModal()">Cancel</button>
-          <button type="button" class="btn-green" onclick="saveApiKey()">Save Key</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <footer>
     Iqama Data Entry Dashboard &bull; Created By:- 8306 - ABUBAKAR MD HUSSAIN
   </footer>
 
   <script>
-    const STORAGE_KEY = 'iqama_dashboard_entries_v2';
-    const API_KEY_STORAGE = 'iqama_gemini_api_key';
+    const STORAGE_KEY = 'iqama_dashboard_entries_v3';
     const DEFAULT_FACE_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='90'%3E%3Crect width='70' height='90' fill='%23ffffff' stroke='%23cbd5e1'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='10' fill='%2364748b'%3E35x45mm%3C/text%3E%3C/svg%3E";
 
     let entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -329,7 +307,7 @@
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
       } catch (e) {
-        alert('Storage limit reached! Please backup and clear old entries or use smaller images.');
+        alert('Storage limit reached! Please backup and clear old entries.');
       }
       document.getElementById('list-count').textContent = entries.length;
       updateKPIs();
@@ -413,7 +391,6 @@
       makeChart('chart-room', 'bar', room.labels, room.values, ['#1b365d']);
     }
 
-    // COMPRESS IQAMA IMAGE FOR STORAGE & WHATSAPP SHARING
     function compressImageToJpeg(dataUrl, maxWidth = 1000, quality = 0.85) {
       return new Promise(resolve => {
         const img = new Image();
@@ -429,17 +406,16 @@
       });
     }
 
-    // ENHANCE IMAGE FOR BETTER OFFLINE OCR ACCURACY
     function createHighContrastOcrImage(dataUrl) {
       return new Promise(resolve => {
         const img = new Image();
         img.onload = () => {
-          const scale = Math.max(1, 1400 / img.width);
+          const scale = Math.max(1, 1600 / img.width);
           const canvas = document.createElement('canvas');
           canvas.width = Math.round(img.width * scale);
           canvas.height = Math.round(img.height * scale);
           const ctx = canvas.getContext('2d');
-          ctx.filter = 'grayscale(100%) contrast(155%) brightness(108%)';
+          ctx.filter = 'grayscale(100%) contrast(190%) brightness(110%)';
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/png'));
         };
@@ -447,7 +423,6 @@
       });
     }
 
-    // WHATSAPP SHARE WITH IQAMA PICTURE
     function dataURLtoFile(dataurl, filename) {
       const arr = dataurl.split(',');
       const mime = arr[0].match(/:(.*?);/)[1];
@@ -490,11 +465,7 @@
 
       if (filesToShare.length > 0 && navigator.canShare && navigator.canShare({ files: filesToShare })) {
         try {
-          await navigator.share({
-            files: filesToShare,
-            title: `Iqama - ${rec.name}`,
-            text: text
-          });
+          await navigator.share({ files: filesToShare, title: `Iqama - ${rec.name}`, text: text });
           return;
         } catch (err) {
           if (err.name === 'AbortError') return;
@@ -506,7 +477,6 @@
         a.href = rec.iqamaPhoto;
         a.download = `${rec.iqama || 'Iqama'}_Card.jpg`;
         a.click();
-        alert('Iqama picture downloaded! Please attach it in the WhatsApp chat opening now.');
       }
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
@@ -536,7 +506,6 @@
       if (rec) shareRecordWhatsApp(rec);
     }
 
-    // FORM SAVE / EDIT / DELETE
     function saveEntry(e) {
       e.preventDefault();
       const id = document.getElementById('edit-id').value;
@@ -580,7 +549,7 @@
       document.getElementById('f-category').value = 'Worker';
       document.getElementById('form-heading').textContent = 'Add New Iqama Entry';
       document.getElementById('save-btn').textContent = '💾 Save Entry';
-      document.getElementById('ocr-status').textContent = 'Ready';
+      document.getElementById('ocr-status').textContent = 'Ready (Offline Smart Scanner)';
       document.getElementById('preview-iqama').classList.add('hidden');
       document.getElementById('preview-face').src = DEFAULT_FACE_SVG;
       currentFaceDataUrl = '';
@@ -632,7 +601,6 @@
       refreshAll();
     }
 
-    // TABLE RENDERING
     function renderTable() {
       const q = (document.getElementById('search-input')?.value || '').toLowerCase();
       const statusFilter = document.getElementById('filter-status')?.value || 'all';
@@ -694,7 +662,6 @@
       });
     }
 
-    // 35x45mm WHITE BACKGROUND PHOTO PROCESSOR
     function processPassportPhoto(imgElement, applyWhiteBg = true) {
       const canvas = document.createElement('canvas');
       canvas.width = 350;
@@ -781,7 +748,6 @@
       a.click();
     }
 
-    // IQAMA UPLOAD & UNIVERSAL OCR (AI + HIGH-CONTRAST OFFLINE PARSER)
     function handleIqamaUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -797,57 +763,44 @@
       reader.readAsDataURL(file);
     }
 
-    async function callGeminiModel(model, apiKey, base64) {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: 'Extract details from this Saudi Iqama card. Return ONLY valid JSON with exact keys: "name" (full English name), "iqama" (10 digits), "nationality" (English country name), "expiry" (DD-MM-YYYY), "job" (English occupation). No markdown.' },
-              { inline_data: { mime_type: 'image/jpeg', data: base64 } }
-            ]
-          }]
-        })
-      });
-      const json = await res.json();
-      if (!res.ok || json.error) {
-        throw new Error(json?.error?.message || `HTTP ${res.status}`);
-      }
-      return json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    }
-
+    // POWERFUL OFFLINE SMART PARSER (CATCHES IQAMA NO, EXPIRY, NATIONALITY & NAME)
     function parseSmartOfflineText(text) {
-      // Normalize Arabic-Indic digits if any
       const normalized = text.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-      const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+      const cleanText = normalized.replace(/\s+/g, ' ');
 
-      // 10-digit Iqama starting with 1 or 2
-      const iqamaMatch = normalized.match(/\b[12]\d{9}\b/);
+      const iqamaMatch = cleanText.match(/\b([12]\d{9}|\d{10})\b/);
       const iqama = iqamaMatch ? iqamaMatch[0] : '';
 
-      // Date DD-MM-YYYY or YYYY-MM-DD or DD/MM/YYYY
       let expiry = '';
-      const dmy = normalized.match(/\b(\d{2})[-/](\d{2})[-/](20\d{2})\b/);
-      const ymd = normalized.match(/\b(20\d{2})[-/](\d{2})[-/](\d{2})\b/);
-      if (dmy) expiry = `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
-      else if (ymd) expiry = `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
+      const dateMatches = cleanText.match(/\b(\d{1,2})[-/](\d{1,2})[-/](20\d{2})\b/g);
+      if (dateMatches && dateMatches.length > 0) {
+        const targetDateStr = dateMatches[dateMatches.length - 1];
+        const parts = targetDateStr.split(/[-/]/);
+        expiry = `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+      }
 
-      // English Uppercase Name line (at least 2 words of 3+ letters)
+      const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
       let name = '';
       for (const line of lines) {
         const cleanLine = line.replace(/[^A-Za-z\s-]/g, '').trim();
-        if (/^[A-Z]{3,}(\s+[A-Z-]{2,}){1,4}$/.test(cleanLine) && !/KINGDOM|SAUDI|ARABIA|RESIDENT|IDENTITY|MINISTRY|INTERIOR/.test(cleanLine)) {
+        if (/^[A-Z]{3,}(\s+[A-Z-]{2,}){1,4}$/.test(cleanLine) && !/KINGDOM|SAUDI|ARABIA|RESIDENT|IDENTITY|MINISTRY|INTERIOR|PASSPORT|NAME/.test(cleanLine)) {
           name = cleanLine;
           break;
         }
       }
+      if (!name) {
+        for (const line of lines) {
+          if (line.length > 5 && /[A-Z]/.test(line) && !/(KINGDOM|SAUDI|ARABIA|MINISTRY)/i.test(line)) {
+            name = line.replace(/[^A-Za-z\s]/g, '').trim();
+            if (name.split(' ').length >= 2) break;
+          }
+        }
+      }
 
-      // Common Nationalities
-      const natList = ['India', 'Pakistan', 'Bangladesh', 'Egypt', 'Yemen', 'Philippines', 'Nepal', 'Sudan', 'Jordan', 'Syria', 'Sri Lanka', 'Indonesia'];
+      const natList = ['India', 'Pakistan', 'Bangladesh', 'Egypt', 'Yemen', 'Philippines', 'Nepal', 'Sudan', 'Jordan', 'Syria', 'Sri Lanka', 'Indonesia', 'Nigeria', 'Ethiopia'];
       let nationality = '';
       for (const n of natList) {
-        if (new RegExp(`\\b${n}\\b`, 'i').test(normalized)) {
+        if (new RegExp(`\\b${n}\\b`, 'i').test(cleanText)) {
           nationality = n;
           break;
         }
@@ -858,37 +811,8 @@
 
     async function runIqamaOCR(dataUrl) {
       const statusEl = document.getElementById('ocr-status');
-      const apiKey = (localStorage.getItem(API_KEY_STORAGE) || '').trim();
-
-      // Only attempt Gemini REST API if key is a standard AIzaSy API key
-      if (apiKey && apiKey.startsWith('AIza')) {
-        statusEl.textContent = '⏳ Reading with AI...';
-        const base64 = dataUrl.split(',')[1];
-        const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
-
-        for (const model of models) {
-          try {
-            const rawText = await callGeminiModel(model, apiKey, base64);
-            const cleaned = rawText.replace(/```json|```/g, '').trim();
-            const parsed = JSON.parse(cleaned);
-
-            if (parsed.name) document.getElementById('f-name').value = parsed.name;
-            if (parsed.iqama) document.getElementById('f-iqama').value = String(parsed.iqama).replace(/\D/g, '').slice(0, 10);
-            if (parsed.nationality) document.getElementById('f-nationality').value = parsed.nationality;
-            if (parsed.expiry) document.getElementById('f-expiry').value = parsed.expiry;
-            if (parsed.job) document.getElementById('f-job').value = parsed.job;
-
-            statusEl.textContent = '✅ AI Read Complete';
-            return;
-          } catch (err) {
-            console.warn(`AI (${model}) fallback:`, err.message);
-          }
-        }
-      }
-
-      // High-Contrast Offline OCR (works with zero API key!)
       try {
-        statusEl.textContent = '⏳ Scanning Card (Offline OCR)...';
+        statusEl.textContent = '⏳ Scanning Card (Smart Offline OCR)...';
         const enhancedUrl = await createHighContrastOcrImage(dataUrl);
         const { data: { text } } = await Tesseract.recognize(enhancedUrl, 'eng');
         const extracted = parseSmartOfflineText(text);
@@ -898,13 +822,12 @@
         if (extracted.nationality) document.getElementById('f-nationality').value = extracted.nationality;
         if (extracted.expiry) document.getElementById('f-expiry').value = extracted.expiry;
 
-        statusEl.textContent = '✅ Scan Complete (Verify & complete remaining fields)';
+        statusEl.textContent = '✅ Scan Complete (Verify fields)';
       } catch (e) {
         statusEl.textContent = '⚠️ Ready for Manual Entry';
       }
     }
 
-    // CAMERA MODAL
     async function openCamera(mode) {
       activeCameraMode = mode;
       document.getElementById('camera-title').textContent = mode === 'iqama' ? '📷 Capture Iqama Card' : '📷 Capture Employee Photo';
@@ -952,25 +875,6 @@
       }
     }
 
-    // API KEY MODAL
-    function openApiKeyModal() {
-      document.getElementById('api-key-input').value = localStorage.getItem(API_KEY_STORAGE) || '';
-      document.getElementById('apikey-modal').classList.remove('hidden');
-    }
-    function closeApiKeyModal() {
-      document.getElementById('apikey-modal').classList.add('hidden');
-    }
-    function saveApiKey() {
-      const val = document.getElementById('api-key-input').value.trim();
-      if (val && !val.startsWith('AIza')) {
-        alert('Note: Only standard Google API keys starting with "AIzaSy..." work for cloud AI. Saved anyway—Offline OCR will run automatically as backup.');
-      }
-      if (val) localStorage.setItem(API_KEY_STORAGE, val);
-      else localStorage.removeItem(API_KEY_STORAGE);
-      closeApiKeyModal();
-    }
-
-    // BACKUP / RESTORE / EXCEL / PDF
     function backupData() {
       const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
