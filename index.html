@@ -919,19 +919,20 @@
         ? [{ url: base, headers: { Authorization: `Bearer ${apiKey}` } }]
         : [
             { url: `${base}?key=${encodeURIComponent(apiKey)}`, headers: {} },
+            { url: base, headers: { 'x-goog-api-key': apiKey } },
             { url: base, headers: { Authorization: `Bearer ${apiKey}` } }
           ];
-      let lastErr = 'Unknown error';
+      let lastErr = '';
       for (const a of attempts) {
         try {
           const res = await fetch(a.url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...a.headers }, body });
           const json = await res.json();
-          if (!res.ok || json.error) { lastErr = json?.error?.message || `HTTP ${res.status}`; continue; }
+          if (!res.ok || json.error) { if (!lastErr) lastErr = json?.error?.message || `HTTP ${res.status}`; continue; }
           const parts = json?.candidates?.[0]?.content?.parts || [];
           return parts.map(p => p.text || '').join('');
-        } catch (e) { lastErr = e.message; }
+        } catch (e) { if (!lastErr) lastErr = e.message; }
       }
-      throw new Error(lastErr);
+      throw new Error(lastErr || 'Unknown error');
     }
 
     function parseSmartOfflineText(text) {
